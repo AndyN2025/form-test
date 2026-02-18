@@ -1,17 +1,18 @@
 <template>
   <el-button
-    :type="props.type"
-    :icon="props.icon"
+    :type="type"
+    :icon="icon"
     @click="$emit('click')"
-    >
-  </el-button>
+  />
 </template>
 
 <script setup lang="ts">
-import type { IconComponent } from 'element-plus/es/utils/index.mjs';
+import type { IconComponent } from 'element-plus/es/utils'
+import type { ButtonType } from '@/constants/ui'
 
-const props = defineProps<{
-  type?: 'primary' | 'danger' | 'default'
+
+defineProps<{
+  type?: ButtonType
   icon?: IconComponent
 }>()
 

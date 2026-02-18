@@ -1,14 +1,14 @@
-export type AccType = 'LDAP' | 'LOCAL'
+import type { AccountType } from '@/constants/account'
 
 export interface Label {
   text: string
 }
 
-export interface Acc {
+export interface Account {
   id: string
   labels: Label[]
-  type: AccType | null
+  type: AccountType
   login: string
-  pass: string | null
-  ok: boolean
+  password: string | null
+  isValid: boolean
 }
