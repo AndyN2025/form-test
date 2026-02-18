@@ -1,39 +1,67 @@
 import { defineStore } from 'pinia'
-import type { Acc } from '@/types/accountType'
-import { load, save } from '@/utils/AccountUtilStorage'
+import type { Account } from '@/types/accountType'
+import { storage } from '@/utils/storage'
+import { STORAGE_KEYS } from '@/constants/storage'
+import { STORE_NAMES } from '@/constants/store'
+import { ACCOUNT_TYPES } from '@/constants/account'
 
-const KEY = 'accs'
-
-export const useAccStore = defineStore('acc', {
+export const useAccountStore = defineStore(STORE_NAMES.ACCOUNT, {
   state: () => ({
-    list: load<Acc[]>(KEY) ?? [],
+    accounts: storage.get<Account[]>(STORAGE_KEYS.ACCOUNTS, []),
   }),
 
+  getters: {
+    list: (state) => state.accounts,
+  },
+
   actions: {
-    add: () => {
-      const s = useAccStore()
-      s.list.push({
-        id: crypto.randomUUID(),
+    addAccount() {
+      const newAccount: Account = {
+        id: crypto?.randomUUID?.() ?? String(Date.now()),
         labels: [],
-        type: null,
+        type: ACCOUNT_TYPES.LOCAL,
         login: '',
-        pass: null,
-        ok: false,
-      })
-      save(KEY, s.list)
+        password: null,
+        isValid: false,
+      }
+
+      this.accounts.push(newAccount)
+      this.persist()
     },
 
-    update: (acc: Acc) => {
-      const s = useAccStore()
-      const i = s.list.findIndex(v => v.id === acc.id)
-      if (i !== -1) s.list[i] = acc
-      save(KEY, s.list)
+    updateAccount(updated: Account) {
+      const index = this.accounts.findIndex(
+        (a) => a.id === updated.id
+      )
+
+      if (index === -1) return
+
+      this.accounts[index] = {
+        ...updated,
+        isValid: this.validate(updated),
+      }
+
+      this.persist()
     },
 
-    remove: (id: string) => {
-      const s = useAccStore()
-      s.list = s.list.filter(v => v.id !== id)
-      save(KEY, s.list)
+    removeAccount(id: string) {
+      this.accounts = this.accounts.filter(
+        (a) => a.id !== id
+      )
+      this.persist()
+    },
+
+    validate(account: Account): boolean {
+      const loginOk = !!account.login
+      const passOk =
+        account.type === ACCOUNT_TYPES.LDAP ||
+        !!account.password
+
+      return loginOk && passOk
+    },
+
+    persist() {
+      storage.set(STORAGE_KEYS.ACCOUNTS, this.accounts)
     },
   },
 })

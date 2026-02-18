@@ -1,105 +1,115 @@
 <template>
-  <el-row :gutter="10" class="row">
+  <el-row :gutter="10" class="account-row">
     <el-col :span="8">
       <el-input
-        v-model="lbl"
-        placeholder="Значение"
-        @blur="onBlur"
-        maxlength="50"
-        :class="{ err: !!lbl && !isLabelsValid }"
+        v-model="labelsInput"
+        placeholder="Метки (через ;)"
+        @blur="handleBlur"
+        :class="{ 'input-error': labelsInput && !isLabelsValid }"
       />
     </el-col>
 
     <el-col :span="5">
-      <el-select v-model="loc.type" placeholder="Тип" @change="onType">
-        <el-option label="LDAP" value="LDAP" />
-        <el-option label="Локальная" value="LOCAL" />
+      <el-select
+        v-model="form.type"
+        placeholder="Тип"
+        @change="handleTypeChange"
+      >
+        <el-option label="LDAP" :value="ACCOUNT_TYPES.LDAP" />
+        <el-option label="Локальная" :value="ACCOUNT_TYPES.LOCAL" />
       </el-select>
     </el-col>
 
-   <el-col :span="loc.type === 'LOCAL' ? 4 : 9">
+    <el-col :span="form.type === ACCOUNT_TYPES.LOCAL ? 4 : 9">
       <el-input
-        v-model="loc.login"
+        v-model="form.login"
         placeholder="Логин"
-        @blur="onBlur"
-        :class="{ err: !loc.ok && !loc.login }"
+        @blur="handleBlur"
       />
     </el-col>
 
-    <el-col :span="5" v-if="loc.type === 'LOCAL'">
-     <el-input
-        v-model="loc.pass"
-        :type="showPass ? 'text' : 'password'"
+    <el-col
+      v-if="form.type === ACCOUNT_TYPES.LOCAL"
+      :span="5"
+    >
+      <el-input
+        v-model="form.password"
+        :type="isPasswordVisible ? 'text' : 'password'"
         placeholder="Пароль"
-        maxlength="100"
-        @blur="onBlur"
-        :class="{ err: !loc.ok && !loc.pass }"
-        >
+        @blur="handleBlur"
+      >
         <template #suffix>
-          <el-icon class="eye" @click="togPass" style="cursor: pointer;">
-            <component :is="showPass ? Hide : View" />
+          <el-icon @click="togglePassword">
+            <component
+              :is="isPasswordVisible ? Hide : View"
+            />
           </el-icon>
         </template>
       </el-input>
     </el-col>
 
     <el-col :span="2">
-      <UiButton type="danger" :icon="Delete" @click="removeElement" />
+      <UiButton
+        :type="BUTTON_TYPES.DANGER"
+        :icon="Delete"
+        @click="handleRemove"
+      />
     </el-col>
   </el-row>
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, computed } from 'vue'
-import type { Acc } from '@/types/accountType'
-import { useAccStore } from '@/store/accountStore'
+import { reactive, ref } from 'vue'
+import type { Account } from '@/types/accountType'
+import { useAccountStore } from '@/store/accountStore'
+import { ACCOUNT_TYPES } from '@/constants/account'
+import { BUTTON_TYPES } from '@/constants/ui'
+import { parseLabels } from '@/utils/labelParser'
+import { useAccountValidation } from '@/composables/useAccountValidation'
 import UiButton from './UIButton.vue'
 import { Delete, View, Hide } from '@element-plus/icons-vue'
 
-const props = defineProps<{ acc: Acc }>()
-const state = useAccStore()
+const props = defineProps<{ account: Account }>()
+const store = useAccountStore()
 
-const loc = reactive({ ...props.acc })
-const lbl = ref(props.acc.labels.map(v => v.text).join('; '))
+const form = reactive({ ...props.account })
+const labelsInput = ref(
+  props.account.labels.map((l) => l.text).join('; ')
+)
 
-const showPass = ref(false)
+const isPasswordVisible = ref(false)
 
-const togPass = () => {
-  showPass.value = !showPass.value
+const { isValid, isLabelsValid } =
+  useAccountValidation(form, labelsInput)
+
+const handleBlur = () => {
+  form.labels = parseLabels(labelsInput.value)
+  form.isValid = isValid.value
+  store.updateAccount({ ...form })
 }
 
-const labelsRegex = /^[\p{Script=Latin}\p{Script=Cyrillic}\s;]*$/u
-const isLabelsValid = computed(() => {
-  if (!lbl.value.trim()) return true 
-  return labelsRegex.test(lbl.value)
-})
-
-const parseLbl = (v: string) =>
-  v.split(';').map(s => s.trim()).filter(Boolean).map(text => ({ text }))
-
-const chk = () => {
-  const lOk = !!loc.login
-  const pOk = loc.type === 'LDAP' || !!loc.pass
-  loc.ok = lOk && pOk && isLabelsValid.value
+const handleTypeChange = () => {
+  if (form.type === ACCOUNT_TYPES.LDAP) {
+    form.password = null
+  }
+  handleBlur()
 }
 
-const onBlur = () => {
-  loc.labels = parseLbl(lbl.value)
-  chk()
-  state.update({ ...loc })
+const togglePassword = () => {
+  isPasswordVisible.value =
+    !isPasswordVisible.value
 }
 
-const onType = () => {
-  if (loc.type === 'LDAP') loc.pass = null
-  onBlur()
+const handleRemove = () => {
+  store.removeAccount(form.id)
 }
-
-const removeElement = () => state.remove(loc.id)
 </script>
 
 <style scoped>
-.row { margin-bottom: 12px; }
-.err :deep(.el-input__wrapper) {
+.account-row {
+  margin-bottom: 12px;
+}
+.input-error :deep(.el-input__wrapper) {
   box-shadow: 0 0 0 1px #f56c6c inset !important;
 }
 </style>
